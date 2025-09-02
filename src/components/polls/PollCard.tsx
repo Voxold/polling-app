@@ -3,6 +3,7 @@
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import Button from '../ui/button';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface PollOption {
   id: string;
@@ -27,7 +28,15 @@ interface PollCardProps {
 }
 
 export default function PollCard({ poll, onVote, showResults = false }: PollCardProps) {
+  const { user } = useAuth();
+  
   const handleVote = (optionId: string) => {
+    if (!user) {
+      // Redirect to login if not authenticated
+      window.location.href = '/auth/login';
+      return;
+    }
+    
     if (onVote) {
       onVote(optionId);
     }
@@ -72,7 +81,7 @@ export default function PollCard({ poll, onVote, showResults = false }: PollCard
                 className="w-full hover:bg-indigo-50 hover:border-indigo-400"
                 onClick={() => handleVote(option.id)}
               >
-                Vote
+                {user ? 'Vote' : 'Sign in to Vote'}
               </Button>
             )}
           </div>

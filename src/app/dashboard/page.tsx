@@ -1,71 +1,87 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PollCard from '../../components/polls/PollCard';
 import Button from '../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import ProtectedRoute from '../../components/auth/ProtectedRoute';
+import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
 
-// Mock data for demonstration
-const mockPolls = [
-  {
-    id: '1',
-    title: 'What\'s your favorite programming language?',
-    description: 'Let\'s see what the community prefers for development',
-    options: [
-      { id: '1-1', text: 'JavaScript/TypeScript', votes: 45 },
-      { id: '1-2', text: 'Python', votes: 38 },
-      { id: '1-3', text: 'Java', votes: 22 },
-      { id: '1-4', text: 'C++', votes: 15 }
-    ],
-    totalVotes: 120,
-    createdAt: '2024-01-15T10:00:00Z',
-    author: 'John Doe'
-  },
-  {
-    id: '2',
-    title: 'Best framework for building web apps?',
-    description: 'Share your experience with different frameworks',
-    options: [
-      { id: '2-1', text: 'React', votes: 52 },
-      { id: '2-2', text: 'Vue.js', votes: 28 },
-      { id: '2-3', text: 'Angular', votes: 20 },
-      { id: '2-4', text: 'Svelte', votes: 12 }
-    ],
-    totalVotes: 112,
-    createdAt: '2024-01-14T15:30:00Z',
-    author: 'Jane Smith'
-  }
-];
-
-export default function DashboardPage() {
-  const [polls, setPolls] = useState(mockPolls);
+function DashboardContent() {
+  const { user } = useAuth();
+  const [polls, setPolls] = useState([]);
   const [showResults, setShowResults] = useState<{ [key: string]: boolean }>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleVote = (pollId: string, optionId: string) => {
-    // TODO: Implement actual voting logic with API call
-    setPolls(prevPolls => 
-      prevPolls.map(poll => {
-        if (poll.id === pollId) {
+  useEffect(() => {
+    const fetchPolls = async () => {
+      setLoading(true);
+      setError(null);
+      // Fetch polls with options and author email
+      const { data: pollsData, error: pollsError } = await supabase
+        .from('polls')
+        .select(`
+          id,
+          question,
+          description,
+          created_at,
+          created_by,
+          poll_options (id, option_text),
+          users:created_by (email)
+        `)
+        .order('created_at', { ascending: false });
+      if (pollsError) {
+        setError(pollsError.message);
+        setLoading(false);
+        return;
+      }
+      // Fetch votes for all options
+      const { data: votesData } = await supabase
+        .from('votes')
+        .select('option_id');
+      // Map polls to Poll type
+      const mappedPolls = (pollsData || []).map((poll: any) => {
+        const options = (poll.poll_options || []).map((opt: any) => {
+          const votes = (votesData || []).filter((v: any) => v.option_id === opt.id).length;
           return {
-            ...poll,
-            options: poll.options.map(option => 
-              option.id === optionId 
-                ? { ...option, votes: option.votes + 1 }
-                : option
-            ),
-            totalVotes: poll.totalVotes + 1
+            id: opt.id,
+            text: opt.option_text,
+            votes,
           };
-        }
-        return poll;
-      })
-    );
-    
-    // Show results after voting
-    setShowResults(prev => ({ ...prev, [pollId]: true }));
-  };
+        });
+        return {
+          id: poll.id,
+          title: poll.question,
+          description: poll.description,
+          options,
+          totalVotes: options.reduce((sum: number, o: any) => sum + o.votes, 0),
+          createdAt: poll.created_at,
+          author: poll.users?.email || 'Unknown',
+          createdBy: poll.created_by,
+        };
+      });
+      setPolls(mappedPolls);
+      setLoading(false);
+    };
+    fetchPolls();
+  }, [user]);
 
-  const toggleResults = (pollId: string) => {
-    setShowResults(prev => ({ ...prev, [pollId]: !prev[pollId] }));
+  const handleDelete = async (pollId: string) => {
+    if (!window.confirm('Are you sure you want to delete this poll?')) return;
+    setLoading(true);
+    setError(null);
+    // Delete poll options and votes first due to foreign key constraints
+    await supabase.from('votes').delete().eq('poll_id', pollId);
+    await supabase.from('poll_options').delete().eq('poll_id', pollId);
+    const { error: pollError } = await supabase.from('polls').delete().eq('id', pollId);
+    if (pollError) {
+      setError(pollError.message);
+    } else {
+      setPolls(polls.filter((p: any) => p.id !== pollId));
+    }
+    setLoading(false);
   };
 
   return (
@@ -74,11 +90,11 @@ export default function DashboardPage() {
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-4xl font-bold text-slate-900 mb-3">Dashboard</h1>
-          <p className="text-slate-600 text-lg">Welcome to your polling dashboard</p>
+          <p className="text-slate-600 text-lg">Welcome back, {user?.email}!</p>
         </div>
-        <Button asChild>
-          <a href="/polls/create">Create New Poll</a>
-        </Button>
+        <a href="/polls/create">
+          <Button>Create New Poll</Button>
+        </a>
       </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
@@ -114,29 +130,51 @@ export default function DashboardPage() {
 
       <div className="mb-10">
         <h2 className="text-3xl font-bold text-slate-900 mb-6">Recent Polls</h2>
-        {polls.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-10 text-lg text-slate-500">Loading polls...</div>
+        ) : error ? (
+          <div className="text-center py-10 text-lg text-red-500">{error}</div>
+        ) : polls.length === 0 ? (
           <Card>
             <CardContent className="text-center py-16">
               <p className="text-slate-500 mb-6 text-lg">No polls available yet.</p>
-              <Button asChild>
-                <a href="/polls/create">Create the first poll</a>
-              </Button>
+              <a href="/polls/create">
+                <Button>Create the first poll</Button>
+              </a>
             </CardContent>
           </Card>
         ) : (
           <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-            {polls.map((poll) => (
+            {polls.map((poll: any) => (
               <div key={poll.id} className="space-y-4">
                 <PollCard
                   poll={poll}
-                  onVote={(optionId) => handleVote(poll.id, optionId)}
+                  onVote={(optionId) => {}}
                   showResults={showResults[poll.id]}
                 />
-                <div className="flex justify-center">
+                <div className="flex justify-center gap-2">
+                  {user && poll.createdBy === user.id && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => alert('Edit functionality coming soon!')}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDelete(poll.id)}
+                      >
+                        Delete
+                      </Button>
+                    </>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => toggleResults(poll.id)}
+                    onClick={() => setShowResults(prev => ({ ...prev, [poll.id]: !prev[poll.id] }))}
                   >
                     {showResults[poll.id] ? 'Hide Results' : 'Show Results'}
                   </Button>
@@ -148,11 +186,19 @@ export default function DashboardPage() {
       </div>
 
       <div className="text-center">
-        <Button variant="outline" size="lg" asChild>
-          <a href="/polls">View All Polls</a>
-        </Button>
+        <a href="/polls">
+          <Button variant="outline" size="lg">View All Polls</Button>
+        </a>
       </div>
       </div>
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <ProtectedRoute>
+      <DashboardContent />
+    </ProtectedRoute>
   );
 } 

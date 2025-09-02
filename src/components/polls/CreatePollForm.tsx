@@ -4,18 +4,75 @@ import React, { useState } from 'react';
 import Button from '../ui/button';
 import Input from '../ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
+import { useRouter } from 'next/navigation';
 
 export default function CreatePollForm() {
+  const { user } = useAuth();
+  const router = useRouter();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     options: ['', '']
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement poll creation logic
-    console.log('Creating poll:', formData);
+    setError(null);
+    setSuccess(null);
+    if (!user) {
+      setError('You must be logged in to create a poll.');
+      return;
+    }
+    if (formData.options.filter(opt => opt.trim() !== '').length < 2) {
+      setError('Please provide at least two options.');
+      return;
+    }
+    setLoading(true);
+    try {
+      // Insert poll
+      const { data: pollData, error: pollError } = await supabase
+        .from('polls')
+        .insert([
+          {
+            question: formData.title,
+            description: formData.description,
+            created_by: user.id,
+          },
+        ])
+        .select()
+        .single();
+      if (pollError || !pollData) {
+        setError(pollError?.message || 'Failed to create poll.');
+        setLoading(false);
+        return;
+      }
+      // Insert options
+      const optionsToInsert = formData.options
+        .filter(opt => opt.trim() !== '')
+        .map(opt => ({ poll_id: pollData.id, option_text: opt }));
+      const { error: optionsError } = await supabase
+        .from('poll_options')
+        .insert(optionsToInsert);
+      if (optionsError) {
+        setError(optionsError.message);
+        setLoading(false);
+        return;
+      }
+      setSuccess('Poll created successfully!');
+      setFormData({ title: '', description: '', options: ['', ''] });
+      setTimeout(() => {
+        router.push('/polls');
+      }, 1000);
+    } catch (err: any) {
+      setError(err.message || 'An error occurred.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleOptionChange = (index: number, value: string) => {
@@ -46,6 +103,8 @@ export default function CreatePollForm() {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
+          {error && <div className="text-red-600 text-center">{error}</div>}
+          {success && <div className="text-green-600 text-center">{success}</div>}
           <div className="space-y-3">
             <label htmlFor="title" className="text-sm font-semibold text-slate-700 block">
               Poll Title
@@ -59,7 +118,6 @@ export default function CreatePollForm() {
               required
             />
           </div>
-          
           <div className="space-y-3">
             <label htmlFor="description" className="text-sm font-semibold text-slate-700 block">
               Description (Optional)
@@ -72,7 +130,6 @@ export default function CreatePollForm() {
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             />
           </div>
-
           <div className="space-y-4">
             <label className="text-sm font-semibold text-slate-700 block">Poll Options</label>
             {formData.options.map((option, index) => (
@@ -106,9 +163,8 @@ export default function CreatePollForm() {
               Add Option
             </Button>
           </div>
-
-          <Button type="submit" className="w-full text-lg py-3">
-            Create Poll
+          <Button type="submit" className="w-full text-lg py-3" disabled={loading}>
+            {loading ? 'Creating...' : 'Create Poll'}
           </Button>
         </form>
       </CardContent>

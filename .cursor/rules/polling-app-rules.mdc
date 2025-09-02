@@ -1,0 +1,131 @@
+# Polling App - Cursor Rules & Guidelines
+
+## Project Overview: Polling App with QR Code Sharing
+You are an expert full-stack developer working on the Polling App codebase. Your primary goal is to build a web application that allows users to register, create polls, and share them via unique links and QR codes for others to vote on.
+
+Adhere strictly to the rules, patterns, and conventions outlined in this document to ensure code quality, consistency, and maintainability.
+
+## Technology Stack
+The project uses the following technologies. Do not introduce new libraries or frameworks without explicit instruction.
+
+- **Language**: TypeScript
+- **Main Framework**: Next.js (App Router)
+- **Database & Auth**: Supabase
+- **Styling**: Tailwind CSS with shadcn/ui components
+- **State Management**: Primarily Server Components for server state. Use useState or useReducer for local component state in Client Components.
+- **API Communication**: Use Next.js Server Actions for mutations (creating polls, voting). Fetch data in Server Components using the Supabase client.
+- **Utility Libraries**: A library like qrcode.react for generating QR codes.
+
+## Architecture & Code Style
+
+### Directory Structure
+Follow the standard Next.js App Router structure:
+- `/app` for routes and pages
+- `/components/ui` for `shadcn/ui` components
+- `/components/` for custom, reusable components
+- `/lib` for Supabase client setup, utility functions, and Server Actions
+- `/contexts` for React Context providers (like AuthContext)
+- `/types` for TypeScript type definitions
+
+### Component Design
+- **Prefer Server Components** for fetching and displaying data
+- Use Client Components (`'use client'`) only when interactivity (hooks, event listeners) is required
+- Keep client-side JavaScript minimal by using Server Actions for form submissions
+
+### Naming Conventions
+- Component files: PascalCase (`CreatePollForm.tsx`, `PollCard.tsx`)
+- Utility and action functions: camelCase (`submitVote.ts`, `createPoll.ts`)
+- Database tables and columns: snake_case (Supabase convention)
+- Environment variables: UPPER_SNAKE_CASE
+
+### Error Handling
+- Use try/catch blocks within Server Actions and Route Handlers
+- Use Next.js `error.tsx` files for handling errors within route segments
+- Implement proper error boundaries and user-friendly error messages
+
+### Security & Configuration
+- **Never hardcode secrets** - use environment variables (`.env.local`)
+- Supabase URL: `process.env.NEXT_PUBLIC_SUPABASE_URL`
+- Supabase Secret Key: `process.env.SUPABASE_SECRET_KEY` (server-side only)
+- Supabase Anon Key: `process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+## Code Patterns to Follow
+
+### Data Fetching
+- **Fetch data directly in Server Components** using the Supabase client
+- Do NOT fetch data on the client side using useEffect and useState in page components
+- Use Server Components for initial data loading and display
+
+### Form Handling
+- Use forms that call Server Actions to handle data submission
+- Keep client-side JavaScript minimal
+- Do NOT create separate API route handlers and use fetch on the client side
+- Use Server Actions instead for all data mutations
+
+### Database Interactions
+- Use the Supabase client for all database interactions
+- Implement proper row-level security (RLS) policies
+- Use parameterized queries to prevent SQL injection
+- Handle database errors gracefully
+
+### UI Components
+- Use shadcn/ui components where appropriate
+- Follow the existing component patterns in `/components/ui`
+- Maintain consistent styling with Tailwind CSS classes
+- Ensure responsive design for mobile and desktop
+
+## Specific Implementation Guidelines
+
+### Authentication
+- Use Supabase Auth for user registration and login
+- Implement protected routes using the `ProtectedRoute` component
+- Store user session in `AuthContext`
+- Handle auth state changes properly
+
+### Poll Management
+- Create polls with Server Actions
+- Implement voting functionality with proper validation
+- Generate unique sharing links for each poll
+- Implement QR code generation for easy sharing
+
+### Data Models
+- Follow the existing type definitions in `/types`
+- Ensure proper TypeScript typing throughout the application
+- Use interfaces for component props and function parameters
+
+## Verification Checklist
+Before finalizing your response, you MUST verify the following:
+
+- [ ] Does the code use the Next.js App Router and Server Components for data fetching?
+- [ ] Are Server Actions used for data mutations (forms)?
+- [ ] Is the Supabase client used for all database interactions?
+- [ ] Are shadcn/ui components used for the UI where appropriate?
+- [ ] Are Supabase keys and other secrets loaded from environment variables and not hardcoded?
+- [ ] Does the code follow the established naming conventions?
+- [ ] Are proper error handling mechanisms implemented?
+- [ ] Is the component architecture following Server/Client Component best practices?
+
+## Common Anti-Patterns to Avoid
+
+1. **Client-side data fetching in page components** - Use Server Components instead
+2. **Creating API routes for simple CRUD operations** - Use Server Actions
+3. **Hardcoding database credentials or API keys**
+4. **Mixing client and server logic in the same component**
+5. **Not implementing proper error boundaries**
+6. **Using client-side state management for server data**
+
+## File References
+Key files to reference for understanding the project structure:
+- [src/lib/supabase.ts](mdc:src/lib/supabase.ts) - Supabase client configuration
+- [src/contexts/AuthContext.tsx](mdc:src/contexts/AuthContext.tsx) - Authentication context
+- [src/types/poll.ts](mdc:src/types/poll.ts) - Poll-related type definitions
+- [src/types/auth.ts](mdc:src/types/auth.ts) - Authentication type definitions
+- [src/components/ui/](mdc:src/components/ui/) - UI component library
+- [src/app/layout.tsx](mdc:src/app/layout.tsx) - Root layout with providers
+
+Remember: When in doubt, prefer Server Components and Server Actions over client-side alternatives. This approach provides better performance, SEO, and maintainability for the Polling App.
+---
+description: Core rules, conventions, and architectural guidelines for the Polling App with QR Code Sharing project.
+globs: *.ts,*.tsx,*.js,*.jsx
+alwaysApply: true
+---

@@ -76,18 +76,18 @@ export default function PollsPage() {
             <h1 className="text-4xl font-bold text-slate-900 mb-3">Community Polls</h1>
             <p className="text-slate-600 text-lg">Discover what others think and share your opinion</p>
           </div>
-          <Button asChild>
-            <a href="/polls/create">Create New Poll</a>
-          </Button>
+          <a href="/polls/create">
+            <Button>Create New Poll</Button>
+          </a>
         </div>
 
         {polls.length === 0 ? (
           <Card>
             <CardContent className="text-center py-16">
               <p className="text-slate-500 mb-6 text-lg">No polls available yet.</p>
-              <Button asChild>
-                <a href="/polls/create">Create the first poll</a>
-              </Button>
+              <a href="/polls/create">
+                <Button>Create the first poll</Button>
+              </a>
             </CardContent>
           </Card>
         ) : (

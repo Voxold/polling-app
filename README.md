@@ -2,6 +2,8 @@
 
 A modern Next.js application for creating and participating in community polls. Built with TypeScript, Tailwind CSS, and designed with a clean, user-friendly interface.
 
+image.png
+
 ## Features
 
 - **Dashboard**: Overview of polls and statistics
