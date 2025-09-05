@@ -41,8 +41,25 @@ export default function PollsPage() {
   const [polls, setPolls] = useState(mockPolls);
   const [showResults, setShowResults] = useState<{ [key: string]: boolean }>({});
 
+  // Track voted polls in localStorage (demo only)
+  const hasVoted = (pollId: string) => {
+    if (typeof window === 'undefined') return false;
+    const votedPolls = JSON.parse(localStorage.getItem('votedPolls') || '{}');
+    return !!votedPolls[pollId];
+  };
+
+  const markVoted = (pollId: string) => {
+    if (typeof window === 'undefined') return;
+    const votedPolls = JSON.parse(localStorage.getItem('votedPolls') || '{}');
+    votedPolls[pollId] = true;
+    localStorage.setItem('votedPolls', JSON.stringify(votedPolls));
+  };
+
   const handleVote = (pollId: string, optionId: string) => {
-    // TODO: Implement actual voting logic with API call
+    if (hasVoted(pollId)) {
+      alert('You have already voted in this poll.');
+      return;
+    }
     setPolls(prevPolls => 
       prevPolls.map(poll => {
         if (poll.id === pollId) {
@@ -59,7 +76,7 @@ export default function PollsPage() {
         return poll;
       })
     );
-    
+    markVoted(pollId);
     // Show results after voting
     setShowResults(prev => ({ ...prev, [pollId]: true }));
   };
@@ -98,6 +115,8 @@ export default function PollsPage() {
                   poll={poll}
                   onVote={(optionId) => handleVote(poll.id, optionId)}
                   showResults={showResults[poll.id]}
+                  // Disable voting if already voted
+                  disabled={hasVoted(poll.id)}
                 />
                 <div className="flex justify-center">
                   <Button
@@ -115,4 +134,4 @@ export default function PollsPage() {
       </div>
     </div>
   );
-} 
+}
