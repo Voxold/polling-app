@@ -5,7 +5,7 @@ import Button from '../ui/button';
 import Input from '../ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
+
 import { useRouter } from 'next/navigation';
 
 export default function CreatePollForm() {
@@ -34,35 +34,25 @@ export default function CreatePollForm() {
     }
     setLoading(true);
     try {
-      // Insert poll
-      const { data: pollData, error: pollError } = await supabase
-        .from('polls')
-        .insert([
-          {
-            question: formData.title,
-            description: formData.description,
-            created_by: user.id,
-          },
-        ])
-        .select()
-        .single();
-      if (pollError || !pollData) {
-        setError(pollError?.message || 'Failed to create poll.');
+      const response = await fetch('/api/polls/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          data: formData,
+          userId: user.id,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        setError(result.error || 'Failed to create poll.');
         setLoading(false);
         return;
       }
-      // Insert options
-      const optionsToInsert = formData.options
-        .filter(opt => opt.trim() !== '')
-        .map(opt => ({ poll_id: pollData.id, option_text: opt }));
-      const { error: optionsError } = await supabase
-        .from('poll_options')
-        .insert(optionsToInsert);
-      if (optionsError) {
-        setError(optionsError.message);
-        setLoading(false);
-        return;
-      }
+      
       setSuccess('Poll created successfully!');
       setFormData({ title: '', description: '', options: ['', ''] });
       setTimeout(() => {

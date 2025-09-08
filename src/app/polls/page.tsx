@@ -1,72 +1,118 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PollCard from '../../components/polls/PollCard';
 import Button from '../../components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
-
-// Mock data for demonstration
-const mockPolls = [
-  {
-    id: '1',
-    title: 'What\'s your favorite programming language?',
-    description: 'Let\'s see what the community prefers for development',
-    options: [
-      { id: '1-1', text: 'JavaScript/TypeScript', votes: 45 },
-      { id: '1-2', text: 'Python', votes: 38 },
-      { id: '1-3', text: 'Java', votes: 22 },
-      { id: '1-4', text: 'C++', votes: 15 }
-    ],
-    totalVotes: 120,
-    createdAt: '2024-01-15T10:00:00Z',
-    author: 'John Doe'
-  },
-  {
-    id: '2',
-    title: 'Best framework for building web apps?',
-    description: 'Share your experience with different frameworks',
-    options: [
-      { id: '2-1', text: 'React', votes: 52 },
-      { id: '2-2', text: 'Vue.js', votes: 28 },
-      { id: '2-3', text: 'Angular', votes: 20 },
-      { id: '2-4', text: 'Svelte', votes: 12 }
-    ],
-    totalVotes: 112,
-    createdAt: '2024-01-14T15:30:00Z',
-    author: 'Jane Smith'
-  }
-];
+import { Card, CardContent } from '../../components/ui/card';
+import { useAuth } from '../../contexts/AuthContext';
+import { Poll } from '../../types/poll';
 
 export default function PollsPage() {
-  const [polls, setPolls] = useState(mockPolls);
+  const { user } = useAuth();
+  const [polls, setPolls] = useState<Poll[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showResults, setShowResults] = useState<{ [key: string]: boolean }>({});
 
-  const handleVote = (pollId: string, optionId: string) => {
-    // TODO: Implement actual voting logic with API call
-    setPolls(prevPolls => 
-      prevPolls.map(poll => {
-        if (poll.id === pollId) {
-          return {
-            ...poll,
-            options: poll.options.map(option => 
-              option.id === optionId 
-                ? { ...option, votes: option.votes + 1 }
-                : option
-            ),
-            totalVotes: poll.totalVotes + 1
-          };
+  useEffect(() => {
+    const fetchPolls = async () => {
+      try {
+        const response = await fetch('/api/polls');
+        const data = await response.json();
+        if (data.success) {
+          setPolls(data.polls);
+        } else {
+          setError(data.error || 'Failed to fetch polls');
         }
-        return poll;
-      })
-    );
-    
-    // Show results after voting
-    setShowResults(prev => ({ ...prev, [pollId]: true }));
+      } catch (err) {
+        setError('An error occurred while fetching polls');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPolls();
+  }, []);
+
+  const handleVote = async (pollId: string, optionId: string) => {
+    if (!user) {
+      // Or handle this more gracefully
+      alert('Please log in to vote.');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/polls/vote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: { pollId, optionId }, userId: user.id }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Optimistically update the UI or refetch polls
+        setPolls(prevPolls =>
+          prevPolls.map(poll => {
+            if (poll.id === pollId) {
+              return {
+                ...poll,
+                options: poll.options.map(option =>
+                  option.id === optionId
+                    ? { ...option, votes: option.votes + 1 }
+                    : option
+                ),
+                totalVotes: poll.totalVotes + 1,
+              };
+            }
+            return poll;
+          })
+        );
+        setShowResults(prev => ({ ...prev, [pollId]: true }));
+      } else {
+        alert(result.error || 'Failed to vote');
+      }
+    } catch (err) {
+      alert('An error occurred while voting.');
+    }
+  };
+
+  const handleDelete = async (pollId: string) => {
+    if (!user) {
+      alert('Please log in to delete polls.');
+      return;
+    }
+
+    if (confirm('Are you sure you want to delete this poll?')) {
+      try {
+        const response = await fetch(`/api/polls/delete?pollId=${pollId}&userId=${user.id}`, {
+          method: 'DELETE',
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          setPolls(prevPolls => prevPolls.filter(poll => poll.id !== pollId));
+        } else {
+          alert(result.error || 'Failed to delete poll');
+        }
+      } catch (err) {
+        alert('An error occurred while deleting the poll.');
+      }
+    }
   };
 
   const toggleResults = (pollId: string) => {
     setShowResults(prev => ({ ...prev, [pollId]: !prev[pollId] }));
   };
+
+  if (loading) {
+    return <div className="text-center py-16">Loading polls...</div>;
+  }
+
+  if (error) {
+    return <div className="text-center py-16 text-red-600">{error}</div>;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -97,6 +143,7 @@ export default function PollsPage() {
                 <PollCard
                   poll={poll}
                   onVote={(optionId) => handleVote(poll.id, optionId)}
+                  onDelete={() => handleDelete(poll.id)}
                   showResults={showResults[poll.id]}
                 />
                 <div className="flex justify-center">
@@ -115,4 +162,4 @@ export default function PollsPage() {
       </div>
     </div>
   );
-} 
+}

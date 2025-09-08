@@ -24,10 +24,11 @@ interface Poll {
 interface PollCardProps {
   poll: Poll;
   onVote?: (optionId: string) => void;
+  onDelete?: () => void;
   showResults?: boolean;
 }
 
-export default function PollCard({ poll, onVote, showResults = false }: PollCardProps) {
+export default function PollCard({ poll, onVote, onDelete, showResults = false }: PollCardProps) {
   const { user } = useAuth();
   
   const handleVote = (optionId: string) => {
@@ -52,8 +53,13 @@ export default function PollCard({ poll, onVote, showResults = false }: PollCard
       <CardHeader>
         <CardTitle className="text-slate-900">{poll.title}</CardTitle>
         <CardDescription className="text-slate-600">{poll.description}</CardDescription>
-        <div className="text-sm text-slate-500">
-          Created by <span className="font-medium text-slate-700">{poll.author}</span> • {new Date(poll.createdAt).toLocaleDateString()}
+        <div className="text-sm text-slate-500 flex justify-between items-center">
+          <div>
+            Created by <span className="font-medium text-slate-700">{poll.author}</span> • {new Date(poll.createdAt).toLocaleDateString()}
+          </div>
+          {user && user.email === poll.author && onDelete && (
+            <Button variant="destructive" size="sm" onClick={onDelete}>Delete</Button>
+          )}
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
